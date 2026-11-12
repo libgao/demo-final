@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>说客英语 - 服务体验闭环</title>
+<style>
+    /* ================= 基础与重置 ================= */
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: #E5E7EB; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+    
+    .phone { width: 390px; height: 844px; background-color: #F2F5F8; border-radius: 44px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 10px #111827; position: relative; overflow: hidden; }
+    .island { width: 120px; height: 30px; background: #000; border-radius: 20px; margin: 10px auto 0 auto; z-index: 1000; position: absolute; left: 50%; transform: translateX(-50%); top: 0;}
+    
+    /* ================= 页面路由容器与动画 ================= */
+    .page-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; }
+    .page { 
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+        background-color: #F2F5F8; display: flex; flex-direction: column; 
+        transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
+        z-index: 10;
+    }
+    #page-p-home, #page-s-home { transform: translateX(0); z-index: 5; }
+    .page.active { transform: translateX(0) !important; z-index: 20; box-shadow: -5px 0 25px rgba(0,0,0,0.1); }
+    
+    /* 滚动内容区 */
+    .page-content { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+    .page-content::-webkit-scrollbar { display: none; }
+
+    /* ================= 通用组件 ================= */
+    .clickable { transition: transform 0.1s, opacity 0.1s; cursor: pointer; }
+    .clickable:active { transform: scale(0.96); opacity: 0.8; }
+    
+    .card { background: #FFF; border-radius: 16px; padding: 16px; margin: 12px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+    .card-title { font-size: 15px; font-weight: bold; color: #333; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;}
+    .card-title span { font-size: 12px; color: #999; font-weight: normal; }
+    
+    .btn-primary { background: #1677FF; color: white; border: none; padding: 12px 0; border-radius: 8px; font-size: 14px; font-weight: bold; width: 100%; text-align: center;}
+    .btn-outline { background: transparent; color: #1677FF; border: 1px solid #1677FF; padding: 12px 0; border-radius: 8px; font-size: 14px; font-weight: bold; width: 100%; text-align: center;}
+    .btn-orange { background: #FA8C16; color: white; border: none; padding: 12px 0; border-radius: 8px; font-size: 14px; font-weight: bold; width: 100%; text-align: center;}
+    
+    /* 底部导航 (仅用于一级页面) */
+    .bottom-nav { height: 70px; background: #FFF; border-top: 1px solid #F0F0F0; display: flex; justify-content: space-around; align-items: center; padding-bottom: 10px; flex-shrink: 0; position: relative; z-index: 30;}
+    .nav-item { display: flex; flex-direction: column; align-items: center; color: #999; font-size: 10px; cursor: pointer;}
+    .nav-item.active { color: #1677FF; }
+    .nav-item.green-active { color: #52C41A; }
+    .nav-icon { font-size: 20px; margin-bottom: 4px; }
+    .nav-badge { position: absolute; top: 0; right: 25%; background: #F5222D; color: white; font-size: 9px; padding: 1px 4px; border-radius: 10px; border: 1px solid #FFF;}
+
+    /* ================= 图4-16 家长端首页 ================= */
+    .p-header { background: linear-gradient(135deg, #4A72FF 0%, #2853F0 100%); padding: 60px 20px 20px 20px; color: white; border-radius: 0 0 24px 24px; }
+    .p-user { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .p-user-info { display: flex; align-items: center; gap: 10px; }
+    .p-avatar { width: 44px; height: 44px; background: #FFF; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; color: #4A72FF;}
+    .p-name { font-size: 18px; font-weight: bold; }
+    .p-tag { font-size: 11px; background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 10px; margin-left: 6px;}
+    .p-sub { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+    .role-btn { font-size: 11px; background: rgba(0,0,0,0.2); padding: 6px 12px; border-radius: 12px; }
+    .p-stats { display: flex; justify-content: space-around; background: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px 0; }
+    .p-stat-val { font-size: 18px; font-weight: bold; margin-bottom: 4px; text-align: center; }
+    .p-stat-label { font-size: 11px; opacity: 0.9; text-align: center; }
+
+    .alert-card { background: #FFF7E6; border: 1px solid #FFD591; }
+    .alert-title { color: #D46B08; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; margin-bottom: 8px;}
+    .alert-desc { font-size: 12px; color: #8C6B36; line-height: 1.5; margin-bottom: 12px; }
+    .alert-actions { display: flex; gap: 10px; }
+    .btn-orange-small { background: #FA8C16; color: white; border: none; padding: 8px 0; border-radius: 8px; font-size: 13px; font-weight: bold; flex: 1; }
+    .btn-orange-outline { background: transparent; color: #FA8C16; border: 1px solid #FA8C16; padding: 8px 0; border-radius: 8px; font-size: 13px; font-weight: bold; flex: 1; }
+
+    .task-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #F5F5F5; padding-bottom: 12px; margin-bottom: 12px; }
+    .task-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0;}
+    .task-left { display: flex; align-items: center; gap: 10px;}
+    .task-icon { font-size: 20px; }
+    .task-info h4 { font-size: 14px; color: #333; margin-bottom: 4px; }
+    .task-info p { font-size: 12px; color: #999; }
+    
+    .progress-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; color: #333; }
+    .progress-bar { flex: 1; height: 6px; background: #F0F0F0; border-radius: 3px; margin: 0 12px; overflow: hidden;}
+    .progress-inner { height: 100%; border-radius: 3px; }
+    
+    /* ================= 二级页返回导航 ================= */
+    .nav-back { display: flex; align-items: center; padding: 60px 20px 16px 20px; background: #FFF; font-size: 16px; font-weight: bold; color: #333; position: sticky; top: 0; z-index: 10;}
+    .nav-back span { margin-right: 10px; cursor: pointer; font-size: 20px;}
+    
+    .status-header { display: flex; justify-content: space-between; margin-bottom: 16px; }
+    .status-title { font-size: 16px; font-weight: bold; color: #333; }
+    .status-desc { font-size: 12px; color: #999; margin-top: 4px; }
+    .status-time { text-align: right; color: #FA8C16; }
+    .status-time h3 { font-size: 18px; }
+    .status-time p { font-size: 11px; }
+
+    .timeline { padding-top: 10px;}
+    .tl-item { display: flex; margin-bottom: 24px; position: relative; }
+    .tl-item::before { content: ''; position: absolute; left: 5px; top: 18px; bottom: -24px; width: 2px; background: #E8E8E8; }
+    .tl-item:last-child::before { display: none; }
+    .tl-dot { width: 12px; height: 12px; border-radius: 50%; background: #D9D9D9; margin-right: 16px; margin-top: 4px; flex-shrink: 0; z-index: 2;}
+    .tl-dot.done { background: #52C41A; }
+    .tl-dot.doing { background: #1677FF; box-shadow: 0 0 0 4px #E6F0FF;}
+    .tl-content h4 { font-size: 14px; color: #333; margin-bottom: 4px; display: flex; justify-content: space-between;}
+    .tl-content h4 span { font-size: 11px; color: #999; font-weight: normal;}
+    .tl-content p { font-size: 12px; color: #999; line-height: 1.4; }
+
+    .time-slot { border: 1px solid #E8E8E8; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; align-items: center; background: #FFF;}
+    .time-slot.active { border-color: #1677FF; background: #F0F5FF; }
+    .radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #D9D9D9; margin-right: 12px; flex-shrink: 0; display: flex; justify-content: center; align-items: center;}
+    .time-slot.active .radio { border-color: #1677FF; }
+    .time-slot.active .radio::after { content: ''; width: 10px; height: 10px; background: #1677FF; border-radius: 50%; }
+    .slot-info h4 { font-size: 14px; color: #333; margin-bottom: 4px; }
+    .slot-info p { font-size: 12px; color: #999; }
+
+    .handler-box { display: flex; justify-content: space-between; background: #F9F9F9; border-radius: 12px; padding: 16px; margin: 12px 16px; }
+    .handler-item h5 { font-size: 13px; color: #333; margin-bottom: 4px; }
+    .handler-item p { font-size: 12px; color: #999; }
+
+    /* ================= 图4-17 约课与学情 ================= */
+    .notice-bar { background: #F0F5FF; color: #1677FF; padding: 10px 16px; font-size: 12px; display: flex; align-items: center; gap: 6px; margin: 16px; border-radius: 8px;}
+    
+    .teacher-row { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #F5F5F5; padding: 12px 0; }
+    .teacher-row:last-child { border-bottom: none; }
+    .t-avatar { width: 40px; height: 40px; background: #E6F7FF; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 20px; margin-right: 12px;}
+    .btn-book { background: #1677FF; color: white; border: none; padding: 6px 16px; border-radius: 16px; font-size: 12px; cursor: pointer;}
+    
+    .report-header { background: #1677FF; color: white; padding: 20px; border-radius: 16px; margin: 0 16px 16px 16px; }
+    .report-header h2 { font-size: 18px; margin-bottom: 8px;}
+    .report-header p { font-size: 13px; opacity: 0.9; margin-bottom: 16px;}
+    .report-stats { display: flex; justify-content: space-between; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 12px;}
+    .rs-val { font-size: 18px; font-weight: bold; margin-bottom: 4px; text-align: center;}
+    .rs-label { font-size: 11px; opacity: 0.9; text-align: center;}
+
+    /* ================= 图4-18 学员与提醒 ================= */
+    .s-header { background: linear-gradient(135deg, #52C41A 0%, #389E0D 100%); padding: 60px 20px 20px 20px; color: white; border-radius: 0 0 24px 24px; }
+    .check-circle { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #52C41A; color: #52C41A; display: flex; justify-content: center; align-items: center; font-size: 12px; margin-right: 12px;}
+    .check-circle.uncheck { border-color: #E8E8E8; color: transparent;}
+    .task-done h4 { color: #999 !important; text-decoration: line-through; }
+    
+    .badge-list { display: flex; gap: 10px; }
+    .badge-item { flex: 1; background: #F9F9F9; border-radius: 8px; padding: 12px; text-align: center; }
+    .badge-item.locked { background: #FFF1F0; }
+    .badge-icon { font-size: 24px; margin-bottom: 8px; opacity: 1; }
+    .badge-item.locked .badge-icon { opacity: 0.4; }
+    .badge-item h4 { font-size: 12px; color: #333; margin-bottom: 4px; }
+    .badge-item p { font-size: 11px; color: #999; }
+    .badge-item.locked h4 { color: #F5222D; }
+
+    .setting-group { margin: 16px; background: #FFF; border-radius: 16px; overflow: hidden; }
+    .group-title { font-size: 12px; color: #999; padding: 16px 16px 8px 16px; display: flex; justify-content: space-between;}
+    .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #F5F5F5; }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-row h4 { font-size: 14px; color: #333; margin-bottom: 4px; }
+    .setting-row p { font-size: 12px; color: #999; }
+    
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+    .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #1677FF; }
+    input:checked + .slider:before { transform: translateX(20px); }
+    input:disabled + .slider { background-color: #E8E8E8; cursor: not-allowed; }
+
+    /* ================= 全局弹窗与提示 ================= */
+    #toast { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%) translateY(20px); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; opacity: 0; transition: all 0.3s; z-index: 9999; pointer-events: none; backdrop-filter: blur(5px); text-align: center; width: max-content; max-width: 80%;}
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    .sheet-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 100;}
+    .sheet-mask.show { opacity: 1; pointer-events: auto; }
+    .bottom-sheet { position: absolute; bottom: 0; left: 0; width: 100%; background: #FFF; border-radius: 24px 24px 0 0; padding: 24px; transform: translateY(100%); transition: 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 101; }
+    .bottom-sheet.show { transform: translateY(0); }
+    .sheet-title { font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 16px; color: #333;}
+
+    /* 手机适配 */
+    @media screen and (max-width: 500px) {
+        body { background-color: #F2F5F8; }
+        .phone { width: 100%; height: 100vh; border-radius: 0; box-shadow: none; }
+        .island { display: none; }
+        .p-header, .s-header, .nav-back { padding-top: 30px; margin-top: 0;}
+        .bottom-nav { border-radius: 0; }
+    }
+</style>
+</head>
+<body>
+
+<div class="phone">
+    <div class="island"></div>
+
+    <div class="page-wrapper">
+        <!-- ================= 1. 家长端首页 ================= -->
+        <div id="page-p-home" class="page">
+            <!-- 内容区 -->
+            <div class="page-content">
+                <div class="p-header">
+                    <div class="p-user">
+                        <div class="p-user-info">
+                            <div class="p-avatar">👤</div>
+                            <div>
+                                <div style="display:flex; align-items:center;">
+                                    <span class="p-name">王小明</span>
+                                    <span class="p-tag">L2 进阶</span>
+                                </div>
+                                <div class="p-sub">剩余 48 课时 · 2025-12-20 到期</div>
+                            </div>
+                        </div>
+                        <div class="role-btn clickable" onclick="goTo('page-s-home')">⇄ 家长视角</div>
+                    </div>
+                    <div class="p-stats">
+                        <div><div class="p-stat-val">2h</div><div class="p-stat-label">本周已上</div></div>
+                        <div><div class="p-stat-val">15分</div><div class="p-stat-label">今日练习</div></div>
+                        <div><div class="p-stat-val">6天</div><div class="p-stat-label">连续打卡</div></div>
+                    </div>
+                </div>
+
+                <div class="card alert-card clickable" onclick="goTo('page-progress')">
+                    <div class="alert-title">约课请求处理中 <span>2小时内答复</span></div>
+                    <div class="alert-desc">系统识别到连续 2 次没约到合适老师，已定位原因：周三、周四 19:30 教师时段已满。顾问正在核实可调整的时段。</div>
+                    <div class="alert-actions">
+                        <button class="btn-orange-small">查看处理进度</button>
+                        <button class="btn-orange-outline" onclick="event.stopPropagation(); openSheet('feedback')">补充说明</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">今天要做的事 <span>2 项</span></div>
+                    <div class="task-item">
+                        <div class="task-left">
+                            <div class="task-icon" style="color:#1677FF;">🎤</div>
+                            <div class="task-info"><h4>单词跟读 · L1</h4><p>10分钟 · 发音准确度</p></div>
+                        </div>
+                        <button style="background:#E6F0FF; color:#1677FF; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:bold;" class="clickable" onclick="showToast('跳转至练习页面')">去完成</button>
+                    </div>
+                    <div class="task-item">
+                        <div class="task-left">
+                            <div class="task-icon" style="color:#52C41A;">📅</div>
+                            <div class="task-info"><h4>今天 19:30 上课</h4><p>Anna W. · 25分钟 · 剩余 48课时</p></div>
+                        </div>
+                        <button style="background:#F6FFED; color:#52C41A; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:bold;" class="clickable" onclick="showToast('正在进入教室...')">进教室</button>
+                    </div>
+                </div>
+
+                <div class="card clickable" onclick="goTo('page-report')">
+                    <div class="card-title">本周学情 <span>第 12 周 ></span></div>
+                    <div class="progress-row"><span style="width:70px;">口语流利度</span><div class="progress-bar"><div class="progress-inner" style="width:82%; background:#52C41A;"></div></div><span style="font-weight:bold;">82分</span><span style="color:#52C41A; font-size:11px; margin-left:8px;">↑5</span></div>
+                    <div class="progress-row"><span style="width:70px;">语法正确率</span><div class="progress-bar"><div class="progress-inner" style="width:65%; background:#FA8C16;"></div></div><span style="font-weight:bold;">65分</span><span style="color:#FA8C16; font-size:11px; margin-left:8px;">需加强</span></div>
+                    <div class="progress-row"><span style="width:70px;">本周开口</span><span style="font-weight:bold; margin-left:12px;">120 次</span><span style="color:#52C41A; font-size:11px; margin-left:auto;">↑18</span></div>
+                    <div style="font-size:12px; color:#666; margin-top:10px; background:#FFF1F0; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between;">
+                        <span>薄弱项: <span style="color:#F5222D; background:#FFF; padding:2px 6px; border-radius:4px;">一般过去时</span></span>
+                        <span style="color:#F5222D;">AI 已生成强化包 ></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 底部导航 -->
+            <div class="bottom-nav">
+                <div class="nav-item active"><div class="nav-icon">🏠</div>首页</div>
+                <div class="nav-item clickable" onclick="goTo('page-booking')"><div class="nav-icon">📅</div>约课</div>
+                <div class="nav-item clickable" onclick="goTo('page-settings')"><div class="nav-icon">💬</div>消息<span class="nav-badge">2</span></div>
+                <div class="nav-item clickable" onclick="showToast('个人中心开发中...')"><div class="nav-icon">👤</div>我的</div>
+            </div>
+        </div>
+
+        <!-- ================= 2. 服务进度详情 (无底部导航) ================= -->
+        <div id="page-progress" class="page">
+            <div class="nav-back"><span class="clickable" onclick="goBack()">←</span> 服务进度 <span style="font-size:12px; color:#999; font-weight:normal; margin-left:auto;">CS-2410-0731</span></div>
+            
+            <div class="page-content">
+                <div class="card" style="margin-top:16px;">
+                    <div class="status-header">
+                        <div>
+                            <div class="status-title">处理中 · 待您确认方案</div>
+                            <div class="status-desc">承诺今天 18:00 前答复 · 剩余 2小时 12分</div>
+                        </div>
+                        <div class="status-time">
+                            <h3>30 分钟</h3>
+                            <p>已进行</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="font-size:14px; font-weight:bold; margin-bottom:16px;">这件事走到哪一步了</div>
+                    <div class="timeline">
+                        <div class="tl-item">
+                            <div class="tl-dot done"></div>
+                            <div class="tl-content">
+                                <h4>已受理 <span>14:02</span></h4>
+                                <p>系统识别「近 7 天 2 次未约到 → 自动建单」</p>
+                            </div>
+                        </div>
+                        <div class="tl-item">
+                            <div class="tl-dot done"></div>
+                            <div class="tl-content">
+                                <h4>已定位原因 <span>14:05</span></h4>
+                                <p>原因码 T-02 教师时段已满 (周三 / 周四 19:30 集中)</p>
+                            </div>
+                        </div>
+                        <div class="tl-item">
+                            <div class="tl-dot doing"></div>
+                            <div class="tl-content">
+                                <h4 style="color:#1677FF;">方案待您确认 <span>14:32</span></h4>
+                                <p>已核实真实定位，两个时段可选，选定即锁定</p>
+                            </div>
+                        </div>
+                        <div class="tl-item">
+                            <div class="tl-dot"></div>
+                            <div class="tl-content">
+                                <h4>待上课</h4>
+                                <p>锁定后同步课表，上课前 2 小时提醒</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">为您协调到的时段 <span>实时排课数据</span></div>
+                    <div class="time-slot active clickable" onclick="selectSlot(this)">
+                        <div class="radio"></div>
+                        <div class="slot-info">
+                            <h4>10月16日 (周三) 19:30</h4>
+                            <p>Anna W. · 原固定老师 · 25分钟</p>
+                        </div>
+                    </div>
+                    <div class="time-slot clickable" onclick="selectSlot(this)">
+                        <div class="radio"></div>
+                        <div class="slot-info">
+                            <h4>10月17日 (周四) 19:00</h4>
+                            <p>Leo M. · 备选老师 · 25分钟</p>
+                        </div>
+                    </div>
+                    <button class="btn-primary clickable" style="margin-top:10px; border-radius:12px;" onclick="openSheet('confirm')">确认这个时间</button>
+                    <div style="text-align:center; font-size:12px; color:#999; margin-top:12px;" class="clickable" onclick="showToast('已向总部发起特殊协调申请')">都不合适？<span style="color:#1677FF;">申请总部协调</span></div>
+                </div>
+
+                <div class="card" style="background:#FFF7E6; border:1px solid #FFD591; margin-bottom:30px;">
+                    <div style="font-size:12px; color:#D46B08; font-weight:bold; margin-bottom:4px;">补偿说明</div>
+                    <p style="font-size:11px; color:#8C6B36;">同一老师连续 2 次未约到，按规则补 1 课时，需人工确认。当前：待渠道审核。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 3. 约课页 (一级页面) ================= -->
+        <div id="page-booking" class="page">
+            <div class="page-content">
+                <div class="notice-bar" style="margin-top: 60px;">
+                    <span>ℹ️</span> 当前可提前 30 天预约 <span style="opacity:0.6; font-size:11px; margin-left:auto;">本月由 21 天调整为 30 天</span>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">可约时段 <span>实时同步</span></div>
+                    <div class="teacher-row">
+                        <div style="display:flex; align-items:center;">
+                            <div class="t-avatar">👩</div>
+                            <div><h4 style="font-size:14px; margin-bottom:4px;">周三 19:30 · Anna W.</h4><p style="font-size:12px; color:#999;">您的固定老师 · 剩余 1 个位</p></div>
+                        </div>
+                        <button class="btn-book clickable" onclick="showToast('已提交约课申请，等待老师确认')">约</button>
+                    </div>
+                    <div class="teacher-row">
+                        <div style="display:flex; align-items:center;">
+                            <div class="t-avatar">👨</div>
+                            <div><h4 style="font-size:14px; margin-bottom:4px;">周四 18:00 · Leo M.</h4><p style="font-size:12px; color:#999;">备选老师 · 剩余 2 个位</p></div>
+                        </div>
+                        <button class="btn-book clickable" onclick="showToast('已提交约课申请，等待老师确认')">约</button>
+                    </div>
+                </div>
+
+                <div class="card" style="background:#FFF7E6; border:1px solid #FFD591;">
+                    <div class="alert-title">约不到合适的时间？</div>
+                    <div class="alert-desc">连续 2 次约不到同一老师，可以直接提交协调申请。渠道顾问会在2小时内联系您，必要时由总部排课介入加开时段。</div>
+                    <button class="btn-orange clickable" onclick="showToast('协调申请已提交，请留意工单通知')">提交协调申请</button>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <div class="nav-item clickable" onclick="goBackTo('page-p-home')"><div class="nav-icon">🏠</div>首页</div>
+                <div class="nav-item active"><div class="nav-icon">📅</div>约课</div>
+                <div class="nav-item clickable" onclick="goTo('page-settings')"><div class="nav-icon">💬</div>消息</div>
+                <div class="nav-item clickable" onclick="showToast('个人中心开发中...')"><div class="nav-icon">👤</div>我的</div>
+            </div>
+        </div>
+
+        <!-- ================= 4. 学情周报 (二级页面) ================= -->
+        <div id="page-report" class="page">
+            <div class="nav-back"><span class="clickable" onclick="goBack()">←</span> 本周学情 <span style="font-size:14px; color:#999; font-weight:normal; margin-left:auto;">第 12 周</span></div>
+            
+            <div class="page-content">
+                <div class="report-header" style="margin-top:16px;">
+                    <h2>流利度稳步上升，<br>「一般过去时」还需要再练一轮</h2>
+                    <p style="font-size:11px; opacity:0.8; margin-bottom:12px;">较上周: 流利度 ↑7 · 语法 ↓2 · 开口数 100→120</p>
+                    <div class="report-stats">
+                        <div><div class="rs-val">82</div><div class="rs-label">流利度</div></div>
+                        <div><div class="rs-val">65</div><div class="rs-label">语法正确率</div></div>
+                        <div><div class="rs-val">120</div><div class="rs-label">开口次数</div></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">🤖 AI 说了什么 <span style="font-size:11px;">3 节课 · 12 次练习</span></div>
+                    <p style="font-size:13px; color:#333; line-height:1.5; margin-bottom:8px;">本周孩子开口总时长变长，语句更自然。主要问题在一般过去时的动词变形，go / see / eat 出错 9 次，占语法错误 62%。</p>
+                    <div style="background:#F5F5F5; padding:12px; border-radius:8px; font-size:12px; color:#666;">
+                        一般过去时专项练习 <span style="float:right;">42%</span>
+                        <div class="progress-bar" style="margin:8px 0 0 0;"><div class="progress-inner" style="width:42%; background:#FA8C16;"></div></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">👩‍🏫 老师想对您说 <span style="font-size:11px;">Anna W.</span></div>
+                    <p style="font-size:13px; color:#333; line-height:1.5;">“小明这周敢自己起头说句子了，进步很大。下周一用足球话题多练过去时，您在家可以让他讲讲周末做了什么。”</p>
+                </div>
+                
+                <div class="card" style="background:#FFF7E6; border:1px solid #FFD591; margin-bottom:30px;">
+                    <div class="alert-title">🎯 周末强化包 · 已为您生成</div>
+                    <div class="alert-desc">3 组过去时专项练习，每组 8 分钟，做完自动进入下周学情对比。</div>
+                    <button class="btn-orange clickable" onclick="showToast('强化包已加入今日任务！')">领取并开始</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 5. 学员端首页 (一级页面) ================= -->
+        <div id="page-s-home" class="page">
+            <div class="page-content">
+                <div class="s-header">
+                    <div class="p-user">
+                        <div class="p-user-info">
+                            <div class="p-avatar" style="color:#52C41A;">👦</div>
+                            <div>
+                                <div style="display:flex; align-items:center;">
+                                    <span class="p-name">小明，下午好</span>
+                                </div>
+                                <div class="p-sub">今天也要勇敢开口哦</div>
+                            </div>
+                        </div>
+                        <div class="role-btn clickable" onclick="goBackTo('page-p-home')">⇄ 学员视角</div>
+                    </div>
+                    <div class="p-stats" style="background: rgba(255,255,255,0.2);">
+                        <div><div class="p-stat-val">6天</div><div class="p-stat-label">连续打卡</div></div>
+                        <div><div class="p-stat-val">1280</div><div class="p-stat-label">词汇量</div></div>
+                        <div><div class="p-stat-val">B1</div><div class="p-stat-label">口语等级</div></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">今天的任务 <span style="font-size:11px;">完成 1/2</span></div>
+                    <div class="task-item task-done" style="opacity:0.6;">
+                        <div class="task-left">
+                            <div class="check-circle">✓</div>
+                            <div class="task-info"><h4>单词跟读 · 坚持 3 天</h4><p>发音准确度 91% · 已完成</p></div>
+                        </div>
+                        <span style="font-size:12px; color:#999;">已打卡</span>
+                    </div>
+                    <div class="task-item">
+                        <div class="task-left">
+                            <div class="check-circle uncheck"></div>
+                            <div class="task-info"><h4>情景对话：在餐厅点餐</h4><p>约 5 分钟 · 真人场景模拟</p></div>
+                        </div>
+                        <button style="background:#1677FF; color:white; border:none; padding:6px 16px; border-radius:16px; font-size:12px; font-weight:bold;" class="clickable" onclick="startClass()">开始</button>
+                    </div>
+                </div>
+
+                <div class="card clickable" onclick="showToast('查看徽章详情')">
+                    <div class="card-title">最近拿到的徽章 <span>共 7 枚</span></div>
+                    <div class="badge-list">
+                        <div class="badge-item"><div class="badge-icon">🥉</div><h4>连续 3 天</h4><p>已获得</p></div>
+                        <div class="badge-item"><div class="badge-icon">🥈</div><h4>开口 100 次</h4><p>已获得</p></div>
+                        <div class="badge-item locked"><div class="badge-icon">🥇</div><h4>一周不断</h4><p>差 1 天</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <div class="nav-item green-active"><div class="nav-icon">🏠</div>首页</div>
+                <div class="nav-item clickable" onclick="showToast('任务列表加载中...')"><div class="nav-icon">📅</div>任务</div>
+                <div class="nav-item clickable" onclick="goTo('page-settings')"><div class="nav-icon">💬</div>消息</div>
+                <div class="nav-item clickable" onclick="showToast('我的成就页面开发中...')"><div class="nav-icon">👤</div>我的</div>
+            </div>
+        </div>
+
+        <!-- ================= 6. 消息与提醒 (一级页面) ================= -->
+        <div id="page-settings" class="page">
+            <div class="page-content">
+                <div style="font-size:18px; font-weight:bold; padding: 60px 20px 16px 20px; background:#FFF;">消息与提醒</div>
+                <div style="font-size:12px; color:#999; padding: 0 16px; margin-top:16px; line-height:1.5;">
+                    服务类提醒始终送达（工单进度、调课、补偿到账），营销类可随时关闭。设置对家长与学员同时生效。
+                </div>
+
+                <div class="setting-group">
+                    <div class="group-title">🔔 服务通知 <span>不可关闭</span></div>
+                    <div class="setting-row clickable" onclick="showToast('服务类通知为保障权益，不可关闭', true)">
+                        <div><h4>约课请求已受理</h4><p>14:02 · 顾问将在 2 小时内联系您</p></div>
+                        <label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label>
+                    </div>
+                    <div class="setting-row clickable" onclick="showToast('服务类通知为保障权益，不可关闭', true)">
+                        <div><h4>为您协调到 2 个时段</h4><p>14:32 · 待您确认</p></div>
+                        <label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label>
+                    </div>
+                </div>
+
+                <div class="setting-group" style="margin-bottom:30px;">
+                    <div class="group-title">📚 学习提醒</div>
+                    <div class="setting-row">
+                        <div><h4>上课前 2 小时提醒</h4><p>今天 19:30 · Anna W.</p></div>
+                        <label class="switch"><input type="checkbox" checked onchange="toggleSwitch(this)"><span class="slider"></span></label>
+                    </div>
+                    <div class="setting-row">
+                        <div><h4>每日练习提醒</h4><p>每天 19:00 · 未打卡时提醒</p></div>
+                        <label class="switch"><input type="checkbox" checked onchange="toggleSwitch(this)"><span class="slider"></span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <div class="nav-item clickable" onclick="goBackTo('page-p-home')"><div class="nav-icon">🏠</div>首页</div>
+                <div class="nav-item clickable" onclick="goTo('page-booking')"><div class="nav-icon">📅</div>约课</div>
+                <div class="nav-item active"><div class="nav-icon">💬</div>消息</div>
+                <div class="nav-item clickable" onclick="showToast('个人中心开发中...')"><div class="nav-icon">👤</div>我的</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 全局交互：Toast ================= -->
+    <div id="toast">提示文字</div>
+
+    <!-- ================= 全局交互：底部抽屉 (Bottom Sheet) ================= -->
+    <div class="sheet-mask" id="sheet-mask" onclick="closeSheet()"></div>
+    
+    <div class="bottom-sheet" id="sheet-confirm">
+        <div class="sheet-title">确认约课时间</div>
+        <div style="background:#F9F9F9; padding:16px; border-radius:12px; margin-bottom:20px;">
+            <h4 style="font-size:16px; color:#333; margin-bottom:8px;">10月16日 (周三) 19:30</h4>
+            <p style="font-size:14px; color:#666;">Anna W. · 原固定老师 · 25分钟</p>
+            <div style="margin-top:12px; font-size:12px; color:#52C41A; background:#F6FFED; padding:8px; border-radius:6px; display:inline-block;">按规则补偿 1 课时已到账</div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-outline clickable" onclick="closeSheet()">取消</button>
+            <button class="btn-primary clickable" onclick="confirmBooking()">确认锁定</button>
+        </div>
+    </div>
+
+    <div class="bottom-sheet" id="sheet-feedback">
+        <div class="sheet-title">补充说明</div>
+        <textarea placeholder="请补充您期望的上课时间或其他诉求..." style="width:100%; height:100px; border:1px solid #E8E8E8; border-radius:12px; padding:12px; font-size:14px; resize:none; margin-bottom:20px; outline:none;"></textarea>
+        <button class="btn-primary clickable" onclick="submitFeedback()">提交给顾问</button>
+    </div>
+
+    <!-- 模拟上课全屏遮罩 -->
+    <div class="sheet-mask" id="class-mask" style="background:#000; z-index:999; display:flex; flex-direction:column; justify-content:center; align-items:center; opacity:0; pointer-events:none;">
+        <div style="font-size:40px; margin-bottom:20px; animation: pulse 1.5s infinite;">🎤</div>
+        <h2 style="color:#FFF; font-size:20px; font-weight:bold;">正在连接 AI 外教...</h2>
+        <p style="color:#999; margin-top:10px; font-size:14px;">请大声朗读："I want to order a coffee."</p>
+    </div>
+</div>
+
+<script>
+    // ================= 1. 路由切换逻辑 (修复返回) =================
+    function goTo(targetId) {
+        const target = document.getElementById(targetId);
+        target.style.transform = 'translateX(100%)';
+        void target.offsetWidth; // 强制重绘
+        target.classList.add('active');
+    }
+
+    function goBack() {
+        // 找到当前激活的页面并滑出
+        const current = document.querySelector('.page.active');
+        if(current) {
+            current.classList.remove('active');
+            current.style.transform = 'translateX(100%)';
+        }
+    }
+
+    // 专门用于底部 Tab 切换 (避免动画混乱)
+    function goBackTo(targetId) {
+        document.querySelectorAll('.page').forEach(p => {
+            p.classList.remove('active');
+            p.style.transform = 'translateX(100%)';
+        });
+        const target = document.getElementById(targetId);
+        target.classList.add('active');
+        target.style.transform = 'translateX(0)';
+    }
+
+    // ================= 2. Toast 提示 =================
+    let toastTimeout;
+    function showToast(message, isVibrate = false) {
+        const toast = document.getElementById('toast');
+        toast.innerText = message;
+        toast.classList.add('show');
+        
+        if (isVibrate && navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]); 
+        }
+        
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => { toast.classList.remove('show'); }, 2500);
+    }
+
+    // ================= 3. 底部抽屉控制 =================
+    function openSheet(type) {
+        document.getElementById('sheet-mask').classList.add('show');
+        document.getElementById('sheet-' + type).classList.add('show');
+    }
+    function closeSheet() {
+        document.getElementById('sheet-mask').classList.remove('show');
+        document.querySelectorAll('.bottom-sheet').forEach(el => el.classList.remove('show'));
+    }
+
+    // ================= 4. 业务交互逻辑 =================
+    function selectSlot(element) {
+        document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+    }
+
+    function confirmBooking() {
+        closeSheet();
+        setTimeout(() => { showToast('✅ 约课成功！已同步至课表'); }, 300);
+    }
+
+    function submitFeedback() {
+        closeSheet();
+        setTimeout(() => { showToast('✅ 补充说明已提交给顾问'); }, 300);
+    }
+
+    function startClass() {
+        const mask = document.getElementById('class-mask');
+        mask.style.opacity = '1';
+        mask.style.pointerEvents = 'auto';
+        
+        setTimeout(() => {
+            mask.style.opacity = '0';
+            mask.style.pointerEvents = 'none';
+            showToast('🏆 练习完成！获得 "开口 10 次" 徽章');
+        }, 3000);
+    }
+
+    function toggleSwitch(input) {
+        if(input.checked) {
+            showToast('已开启提醒');
+        } else {
+            showToast('已关闭提醒');
+        }
+    }
+</script>
+<style>
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+</style>
+</body>
+</html>
